@@ -4,4 +4,3 @@ geopandas
 shapely
 folium
 streamlit-folium
-sqlite3
