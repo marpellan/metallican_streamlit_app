@@ -12,7 +12,38 @@ from typing import List, Tuple
 
 # ---------- CONFIG ----------
 st.set_page_config(page_title="MetalliCan Data Explorer", layout="wide")
+# ---------- STYLE ----------
+st.markdown("""
+<style>
+/* Sidebar background */
+[data-testid="stSidebar"] {
+    background-color: #e5e5e5 !important;  /* light gray background */
+}
+
+/* Sidebar text (titles, labels, etc.) */
+[data-testid="stSidebar"] * {
+    color: #000000 !important;  /* make all text black */
+}
+
+/* Optional: darker titles for contrast */
+[data-testid="stSidebar"] h1, 
+[data-testid="stSidebar"] h2, 
+[data-testid="stSidebar"] h3, 
+[data-testid="stSidebar"] label {
+    color: #000000 !important;
+    font-weight: 500;
+}
+
+/* Optional: tweak checkboxes and multiselect borders for visibility */
+div[data-baseweb="select"] > div {
+    border-color: #666 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
 LOGO_PATH = "logo.png"
+LAB_LOGO_PATH = "ciraig_logo.png"
 CSV_FOLDER = "database/CSV"
 SQLITE_PATH = "database/metallican.sqlite"
 DEFAULT_CENTER = (56.0, -96.0)
@@ -69,20 +100,6 @@ def sqlite_table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
 def sql_placeholders(n: int) -> str:
     return ",".join("?" for _ in range(n)) if n > 0 else ""
 
-# # ---------- DATA SOURCES ----------
-# csv_tables = list_csv_tables(CSV_FOLDER)
-# use_sqlite = os.path.exists(SQLITE_PATH)
-# sqlite_conn = sqlite3.connect(SQLITE_PATH) if use_sqlite else None
-#
-# dataset_options = set(csv_tables.keys())
-# if sqlite_conn:
-#     cur = sqlite_conn.cursor()
-#     cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-#     for row in cur.fetchall():
-#         dataset_options.add(row[0])
-# # exclude irrelevant tables
-# excluded_tables = {"Sources", "Substances", "Prioritized_conservation_areas"}
-# dataset_options = sorted([t for t in dataset_options if t not in excluded_tables])
 
 # ---------- DATA SOURCES ----------
 csv_tables = list_csv_tables(CSV_FOLDER)
@@ -97,19 +114,24 @@ if sqlite_conn:
     for row in cur.fetchall():
         dataset_options.add(row[0])
 
-# normalize names and remove near-duplicates
+# --- CLEAN DUPLICATE TABLE NAMES ---
 def normalize_name(name: str) -> str:
-    n = name.lower().replace("_table", "")
-    return n
+    """Remove '_table' suffix and normalize case."""
+    return name.lower().replace("_table", "").strip()
 
 unique_datasets = {}
 for name in dataset_options:
     key = normalize_name(name)
-    # prefer capitalized SQLite name if both exist
-    if key not in unique_datasets or name[0].isupper():
+    # Skip if it’s literally ending with '_table'
+    if name.endswith("_table"):
+        continue
+    # Prefer capitalized or shorter name if duplicates exist
+    if key not in unique_datasets:
         unique_datasets[key] = name
+    else:
+        if name[0].isupper() or len(name) < len(unique_datasets[key]):
+            unique_datasets[key] = name
 
-# final sorted list, excluding irrelevant
 excluded_tables = {"Sources", "Substances", "Prioritized_conservation_areas"}
 dataset_options = sorted(
     [v for k, v in unique_datasets.items() if v not in excluded_tables]
@@ -142,6 +164,8 @@ if os.path.exists(LOGO_PATH):
     except Exception:
         st.sidebar.image(LOGO_PATH)
 
+#if os.path.exists(LAB_LOGO_PATH):
+#    st.sidebar.image(LAB_LOGO_PATH, width=180)
 st.sidebar.title("Filters")
 
 def safe_unique_list(df, col):
@@ -165,6 +189,22 @@ show_land = st.sidebar.checkbox("Show Land Occupation polygons (Land_occupation)
 
 # ---------- MAIN UI ----------
 st.title("MetalliCan Data Explorer")
+
+
+# ---------- ABOUT ----------
+with st.expander("ℹ️ About MetalliCan", expanded=True):
+    st.markdown("""
+    The **MetalliCan** dataset compiles and structures data from **23 open datasets** and over **150 company and technical reports** from more than **40 organizations** in metal-related sectors, offering a **high-resolution, site-specific foundation** for sustainability impact analysis in Canada. MetalliCan currently covers **48 commodities** and **270 domestic sites**, including active mines, smelters, refineries, and advanced projects.
+    
+    It was constructed following a **systematic and reproducible procedure** to integrate heterogeneous data sources at the finest granularity possible and ensure **traceability** and **interoperability**. The dataset is available in a CC-BY 4.0 license.
+    
+    🔗 [GitHub Repository](https://github.com/marpellan/metallican_db) · [Zenodo DOI](https://zenodo.org/records/17289399) · [Nature Scientific Data Paper](10.1038/S41597-025-06106-1) (soon available)
+
+    💬 Found missing or wrong data? Contact [Marin Pellan](https://www.linkedin.com/in/marinpellan/).
+    """)
+
+
+
 col_search, col_ds = st.columns([3, 1])
 with col_search:
     search_query = st.text_input("Search by facility name, company, or commodity", placeholder="Type keywords...")
@@ -255,29 +295,6 @@ else:
 m = folium.Map(location=[center_lat, center_lon], zoom_start=DEFAULT_ZOOM, tiles="CartoDB positron")
 cluster = MarkerCluster().add_to(m)
 
-# Use CircleMarker to avoid icon rendering issues
-# for _, row in map_df.iterrows():
-#     lat, lon = row.get("latitude"), row.get("longitude")
-#     if pd.isna(lat) or pd.isna(lon):
-#         continue
-#     main_id = row.get("main_id", "")
-#     popup_html = "<br/>".join([
-#         f"<b>{row.get('facility_name','')}</b>",
-#         f"Company: {row.get('company_name','')}" if pd.notna(row.get('company_name')) else "",
-#         f"Province: {row.get('province','')}" if pd.notna(row.get('province')) else "",
-#         f"Commodity: {row.get('commodities','')}" if pd.notna(row.get('commodities')) else "",
-#         f"<small style='color:gray'>main_id: {main_id}</small>"
-#     ])
-#     folium.CircleMarker(
-#         location=[lat, lon],
-#         radius=5,
-#         fill=True,
-#         fill_opacity=0.9,
-#         color="#1f78b4",
-#         fill_color="#1f78b4",
-#         popup=folium.Popup(popup_html, max_width=350),
-#         tooltip=row.get("facility_name", "")
-#     ).add_to(cluster)
 
 # ---------- SYMBOLS / COLORS PER FACILITY TYPE ----------
 FACILITY_STYLE = {
@@ -289,39 +306,6 @@ FACILITY_STYLE = {
     "Other": {"color": "#b15928", "emoji": "📍"}
 }
 
-
-# Use CircleMarker for facilities with emoji tooltip
-# for _, row in map_df.iterrows():
-#     lat, lon = row.get("latitude"), row.get("longitude")
-#     if pd.isna(lat) or pd.isna(lon):
-#         continue
-#
-#     ftype = str(row.get("facility_type", "Other"))
-#     style = FACILITY_STYLE.get(ftype, FACILITY_STYLE["Other"])
-#
-#     emoji = style["emoji"]
-#     color = style["color"]
-#
-#     main_id = row.get("main_id", "")
-#     popup_html = "<br/>".join([
-#         f"<b>{emoji} {row.get('facility_name','')}</b>",
-#         f"Type: {ftype}",
-#         f"Company: {row.get('company_name','')}" if pd.notna(row.get('company_name')) else "",
-#         f"Province: {row.get('province','')}" if pd.notna(row.get('province')) else "",
-#         f"Commodity: {row.get('commodities','')}" if pd.notna(row.get('commodities')) else "",
-#         f"<small style='color:gray'>main_id: {main_id}</small>"
-#     ])
-#
-#     folium.CircleMarker(
-#         location=[lat, lon],
-#         radius=6,
-#         fill=True,
-#         fill_opacity=0.9,
-#         color=color,
-#         fill_color=color,
-#         popup=folium.Popup(popup_html, max_width=350),
-#         tooltip=f"{emoji} {row.get('facility_name', '')}"
-#     ).add_to(cluster)
 
 # ---------- FACILITY MARKERS WITH EMOJI ICONS ----------
 for _, row in map_df.iterrows():
@@ -454,4 +438,4 @@ else:
 
 # ---------- FOOTER ----------
 st.markdown("---")
-st.caption("Marin Pellan© 2025 MetalliCan Data Explorer")
+st.caption("© 2025 MetalliCan Data Explorer — Developed by Marin Pellan (CIRAIG – Polytechnique Montréal)")
