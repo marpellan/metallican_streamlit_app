@@ -198,7 +198,7 @@ with st.expander("ℹ️ About MetalliCan", expanded=True):
     
     It was constructed following a **systematic and reproducible procedure** to integrate heterogeneous data sources at the finest granularity possible and ensure **traceability** and **interoperability**. The dataset is available in a CC-BY 4.0 license.
     
-    🔗 [GitHub Repository](https://github.com/marpellan/metallican_db) · [Zenodo DOI](https://zenodo.org/records/17289399) · [Nature Scientific Data Paper](https://www.nature.com/articles/s41597-025-06106-1)
+    🔗 [GitHub Repository](https://github.com/marpellan/metallican_db) · [Zenodo DOI](https://zenodo.org/records/17289399) · [Nature Scientific Data paper](https://www.nature.com/articles/s41597-025-06106-1)
 
     💬 Found missing or wrong data? Contact [Marin Pellan](https://www.linkedin.com/in/marinpellan/).
     """)
